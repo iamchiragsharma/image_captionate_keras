@@ -1,4 +1,4 @@
-from tensorflow.keras import keras
+import tensorflow.keras as keras
 
 
 def captionate_model(max_sent_length, vocab_size, embedding_dim, embedding_matrix):
