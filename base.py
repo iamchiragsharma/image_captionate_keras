@@ -73,7 +73,7 @@ def data_generator(descriptions, photos, wordtoix, max_length, num_photos_per_ba
         for key, desc_list in descriptions.items():
             n+=1
             # retrieve the photo feature
-            photo = photos[key+'.jpg']
+            photo = photos[key]
             for desc in desc_list:
                 # encode the sequence
                 seq = [wordtoix[word] for word in desc.split(' ') if word in wordtoix]
@@ -91,7 +91,7 @@ def data_generator(descriptions, photos, wordtoix, max_length, num_photos_per_ba
                     y.append(out_seq)
             # yield the batch data
             if n==num_photos_per_batch:
-                yield [[np.array(X1), np.array(X2)], np.array(y)]
+                yield [np.array(X1), np.array(X2)], np.array(y)
                 X1, X2, y = list(), list(), list()
                 n=0
 
