@@ -1,14 +1,13 @@
 import pickle
 
 import numpy as np
-import pandas as pd
-
 from collections import Counter
-import random
 
 import tensorflow.keras as keras
 
 from utils import captions_2_dict,generate_dataset
+from data_gen import data_generator
+from model import captionate_model
 
 
 CAPTION_TXT_FILE = "flickr8k/captions.txt"
@@ -65,37 +64,6 @@ idx_2_word = {word : idx for idx,word in word_2_idx.items()}
 sent_length = train_df['caption'].apply(lambda x : len(x.split()))
 max_sent_length =  max(sent_length)
 
-def data_generator(descriptions, photos, wordtoix, max_length, num_photos_per_batch):
-    X1, X2, y = list(), list(), list()
-    n=0
-    # loop for ever over images
-    while 1:
-        for key, desc_list in descriptions.items():
-            n+=1
-            # retrieve the photo feature
-            photo = photos[key]
-            for desc in desc_list:
-                # encode the sequence
-                seq = [wordtoix[word] for word in desc.split(' ') if word in wordtoix]
-                # split one sequence into multiple X, y pairs
-                for i in range(1, len(seq)):
-                    # split into input and output pair
-                    in_seq, out_seq = seq[:i], seq[i]
-                    # pad input sequence
-                    in_seq = keras.preprocessing.sequence.pad_sequences([in_seq], maxlen=max_length)[0]
-                    # encode output sequence
-                    out_seq = keras.utils.to_categorical([out_seq], num_classes=vocab_size)[0]
-                    # store
-                    X1.append(photo)
-                    X2.append(in_seq)
-                    y.append(out_seq)
-            # yield the batch data
-            if n==num_photos_per_batch:
-                yield [np.array(X1), np.array(X2)], np.array(y)
-                X1, X2, y = list(), list(), list()
-                n=0
-
-
 # Load Glove vectors
 glove_path = 'glove_embeddings/glove.6B.200d.txt'
 embeddings_index = {} # empty dictionary
@@ -119,28 +87,8 @@ for word, i in word_2_idx.items():
         # Words not found in the embedding index will be all zeros
         embedding_matrix[i] = embedding_vector
 
-# image feature extractor model
-inputs1 = keras.layers.Input(shape=(2048,))
-fe1 = keras.layers.Dropout(0.5)(inputs1)
-fe2 = keras.layers.Dense(256, activation='relu')(fe1)
 
-# partial caption sequence model
-inputs2 = keras.layers.Input(shape=(max_sent_length,))
-se1 = keras.layers.Embedding(vocab_size, embedding_dim, mask_zero=True)(inputs2)
-se2 = keras.layers.Dropout(0.5)(se1)
-se3 = keras.layers.LSTM(256)(se2)
-
-# decoder (feed forward) model
-decoder1 = keras.layers.add([fe2, se3])
-decoder2 = keras.layers.Dense(256, activation='relu')(decoder1)
-outputs = keras.layers.Dense(vocab_size, activation='softmax')(decoder2)
-
-# merge the two input models
-model = keras.Model(inputs=[inputs1, inputs2], outputs=outputs)
-
-model.layers[2].set_weights([embedding_matrix])
-model.layers[2].trainable = False
-model.compile(loss='categorical_crossentropy', optimizer='adam')
+model = captionate_model(max_sent_length, vocab_size, embedding_dim, embedding_matrix)
 
 epochs = 10
 number_pics_per_batch = 3
@@ -149,7 +97,7 @@ steps = len(train_descriptions)//number_pics_per_batch
 
 
 for i in range(epochs):
-    generator = data_generator(train_descriptions, img_encodings, word_2_idx, max_sent_length, number_pics_per_batch)
+    generator = data_generator(train_descriptions, img_encodings, word_2_idx, max_sent_length, number_pics_per_batch, vocab_size)
     model.fit_generator(generator, epochs=1, steps_per_epoch=steps, verbose=1)
     model.save('./model_weights/model_' + str(i) + '.h5')
     break
