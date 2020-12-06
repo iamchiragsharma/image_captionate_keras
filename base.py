@@ -3,8 +3,6 @@ import pickle
 import numpy as np
 from collections import Counter
 
-import tensorflow.keras as keras
-
 from utils import captions_2_dict,generate_dataset
 from data_gen import data_generator
 from model import captionate_model
@@ -100,4 +98,3 @@ for i in range(epochs):
     generator = data_generator(train_descriptions, img_encodings, word_2_idx, max_sent_length, number_pics_per_batch, vocab_size)
     model.fit_generator(generator, epochs=1, steps_per_epoch=steps, verbose=1)
     model.save('./model_weights/model_' + str(i) + '.h5')
-    break
